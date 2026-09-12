@@ -29,6 +29,7 @@ wheels/
 # Environment variables & secrets (CRITICAL FOR ENTERPRISE SECURITY)
 .env
 .env.*
+!.env.example
 *.pem
 credentials.json
 aws_keys.txt
@@ -41,8 +42,8 @@ dbt/eklakshay_dbt/logs/
 # Spark & local storage dumps
 *.parquet
 *.csv
-*.json
 *.log
+data/
 metastore_db/
 derby.log
 spark-warehouse/
