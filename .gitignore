@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables & secrets (CRITICAL FOR ENTERPRISE SECURITY)
+.env
+.env.*
+*.pem
+credentials.json
+aws_keys.txt
+
+# dbt artifacts
+dbt/eklakshay_dbt/target/
+dbt/eklakshay_dbt/dbt_packages/
+dbt/eklakshay_dbt/logs/
+
+# Spark & local storage dumps
+*.parquet
+*.csv
+*.json
+*.log
+metastore_db/
+derby.log
+spark-warehouse/
+.checkpoint/
+
+# Airflow local runtime files
+airflow/logs/
+airflow/airflow.db
+airflow/airflow.cfg
+airflow/webserver_config.py
+
+# OS / Editor clutter
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
