@@ -3,7 +3,6 @@ import boto3
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
-# Load credentials from local .env
 load_dotenv()
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -21,7 +20,7 @@ def verify_s3_topology():
         region_name=AWS_REGION,
     )
 
-    # 1. Test bucket accessibility
+
     try:
         print(f"[*] Checking access to bucket: {BUCKET_NAME}...")
         s3_client.head_bucket(Bucket=BUCKET_NAME)
@@ -30,7 +29,7 @@ def verify_s3_topology():
         print(f"[-] Access denied or bucket does not exist: {e}")
         return False
 
-    # 2. Test write permissions (PutObject) to bronze/
+
     test_key = "bronze/_health_check.txt"
     try:
         print(f"[*] Testing write access to {test_key}...")
@@ -44,7 +43,7 @@ def verify_s3_topology():
         print(f"[-] PutObject permission failed: {e}")
         return False
 
-    # 3. Test list permissions
+
     try:
         print(f"[*] Verifying bucket prefixes...")
         response = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Delimiter="/")
