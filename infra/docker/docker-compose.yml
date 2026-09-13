@@ -42,3 +42,19 @@ services:
       - eklakshay-network
     depends_on:
       - metadata-db
+
+  spark-processor:
+    build:
+      context: ../../
+      dockerfile: spark/Dockerfile
+    container_name: eklakshay-spark
+    env_file:
+      - ../../.env
+    networks:
+      - eklakshay-network
+    depends_on:
+      - metadata-db
+    volumes:
+      # Live volume mount so code changes update instantly without rebuilds
+      - ../../spark:/app/spark
+      - ../../tests:/app/tests
