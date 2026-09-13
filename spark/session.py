@@ -28,6 +28,7 @@ def get_spark_session(app_name: str = "EkLakshay-Silver-Transformer") -> SparkSe
         .master("local[*]")
         .config("spark.driver.memory", "2g")
         .config("spark.sql.shuffle.partitions", "4")
+        .config("spark.sql.ansi.enabled", "false")
         .config("spark.driver.extraJavaOptions", "-Dlog4j.configurationFile=/app/spark/log4j2.properties")
         # Attach AWS S3A dependencies
         .config(

@@ -1,6 +1,7 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import DoubleType, StringType, StructField, StructType
+from pyspark.sql.window import Window
 
 # Strict PySpark contract mirroring Pydantic schema
 TRANSACTION_SCHEMA = StructType(
@@ -24,11 +25,18 @@ VALID_STATUSES = ["SUCCESS", "FAILED", "PENDING"]
 
 
 def validate_and_route_records(df: DataFrame) -> tuple[DataFrame, DataFrame]:
-    """Splits raw transactions into a valid dataset and a quarantine (DLQ) dataset.
+    """Splits raw transactions into clean and quarantine datasets.
 
-    Attaches failure reason tags to quarantined records for auditability.
+    Safely handles malformed timestamps without crashing under ANSI mode.
     """
-    # Define boolean condition flags for data hygiene
+    # 1. Safely attempt to parse the timestamp (returns NULL on invalid strings)
+    # try_to_timestamp prevents runtime ANSI CAST_INVALID_INPUT exceptions
+    parsed_df = df.withColumn(
+        "parsed_timestamp",
+        F.expr("try_to_timestamp(event_timestamp)"),
+    )
+
+    # 2. Validation criteria
     has_valid_id = F.col("transaction_id").isNotNull() & (
         F.length(F.col("transaction_id")) > 0
     )
@@ -36,34 +44,63 @@ def validate_and_route_records(df: DataFrame) -> tuple[DataFrame, DataFrame]:
     has_valid_currency = F.col("currency").isin(VALID_CURRENCIES)
     has_valid_method = F.col("payment_method").isin(VALID_METHODS)
     has_valid_status = F.col("status").isin(VALID_STATUSES)
+    has_valid_timestamp = F.col("parsed_timestamp").isNotNull()
 
-    # Master validity condition
+    # Master record validity
     is_valid_record = (
         has_valid_id
         & has_positive_amount
         & has_valid_currency
         & has_valid_method
         & has_valid_status
+        & has_valid_timestamp
     )
 
-    # Clean DataFrame: Keep valid records and parse event_timestamp to real TimestampType
+    # 3. Clean Stream: replace string timestamp with parsed timestamp
     clean_df = (
-        df.filter(is_valid_record)
-        .withColumn(
-            "event_timestamp", F.to_timestamp("event_timestamp")
-        )
+        parsed_df.filter(is_valid_record)
+        .withColumn("event_timestamp", F.col("parsed_timestamp"))
+        .drop("parsed_timestamp")
         .withColumn("ingestion_timestamp", F.current_timestamp())
     )
 
-    # Quarantine DataFrame: Keep failed records and tag the exact root cause
-    quarantine_df = df.filter(~is_valid_record).withColumn(
-        "quarantine_reason",
-        F.when(~has_valid_id, "MISSING_OR_EMPTY_TRANSACTION_ID")
-        .when(~has_positive_amount, "INVALID_OR_NEGATIVE_AMOUNT")
-        .when(~has_valid_currency, "UNSUPPORTED_CURRENCY")
-        .when(~has_valid_method, "UNSUPPORTED_PAYMENT_METHOD")
-        .when(~has_valid_status, "UNRECOGNIZED_STATUS")
-        .otherwise("UNKNOWN_VALIDATION_ERROR"),
-    ).withColumn("quarantined_at", F.current_timestamp())
+    # 4. Quarantine Stream: tag root causes including timestamp errors
+    quarantine_df = (
+        parsed_df.filter(~is_valid_record)
+        .withColumn(
+            "quarantine_reason",
+            F.when(~has_valid_id, "MISSING_OR_EMPTY_TRANSACTION_ID")
+            .when(~has_positive_amount, "INVALID_OR_NEGATIVE_AMOUNT")
+            .when(~has_valid_currency, "UNSUPPORTED_CURRENCY")
+            .when(~has_valid_method, "UNSUPPORTED_PAYMENT_METHOD")
+            .when(~has_valid_status, "UNRECOGNIZED_STATUS")
+            .when(~has_valid_timestamp, "INVALID_TIMESTAMP_FORMAT")
+            .otherwise("UNKNOWN_VALIDATION_ERROR"),
+        )
+        .drop("parsed_timestamp")
+        .withColumn("quarantined_at", F.current_timestamp())
+    )
 
     return clean_df, quarantine_df
+
+
+def deduplicate_and_enrich_silver(clean_df: DataFrame) -> DataFrame:
+    """Deduplicates records based on idempotency_key and derives calendar partition keys."""
+    window_spec = Window.partitionBy("idempotency_key").orderBy(
+        F.col("event_timestamp").desc(),
+        F.col("ingestion_timestamp").desc(),
+    )
+
+    deduped_df = (
+        clean_df.withColumn("row_num", F.row_number().over(window_spec))
+        .filter(F.col("row_num") == 1)
+        .drop("row_num")
+    )
+
+    enriched_df = (
+        deduped_df.withColumn("year", F.year(F.col("event_timestamp")))
+        .withColumn("month", F.format_string("%02d", F.month(F.col("event_timestamp"))))
+        .withColumn("day", F.format_string("%02d", F.dayofmonth(F.col("event_timestamp"))))
+    )
+
+    return enriched_df
