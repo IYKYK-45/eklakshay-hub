@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Optional
 from pydantic import BaseModel,ConfigDict, Field
+from datetime import datetime
 
 
 class CurrencyEnum(str, Enum):
@@ -32,7 +33,7 @@ class TransactionPayload(BaseModel):
     currency: CurrencyEnum
     payment_method: PaymentMethodEnum
     status: TransactionStatusEnum
-    event_timestamp: str = Field(..., description="UTC ISO-8601 timestamp")
+    event_timestamp: datetime = Field(..., description="UTC ISO-8601 timestamp")
 
     # Metadata field injected by downstream ingestion trackers
     source_ip: Optional[str] = None
