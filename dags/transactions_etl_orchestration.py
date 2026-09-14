@@ -37,6 +37,7 @@ with DAG(
         task_id="copy_s3_to_snowflake_silver",
         snowflake_conn_id="snowflake_default",
         sql="""
+            TRUNCATE TABLE EKLAKSHAY_DW.SILVER.TRANSACTIONS;
             COPY INTO EKLAKSHAY_DW.SILVER.TRANSACTIONS (
                 transaction_id,
                 idempotency_key,

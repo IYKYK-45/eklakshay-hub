@@ -72,7 +72,7 @@ def process_bronze_to_silver():
         # Coalesce to 4 files before writing to minimize S3 multipart upload overhead
         (
             silver_df.coalesce(4)
-            .write.mode("append")
+            .write.mode("overwrite")
             .partitionBy("year", "month", "day")
             .option("compression", "snappy")
             .parquet(silver_s3_path)
