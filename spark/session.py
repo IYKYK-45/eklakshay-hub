@@ -30,11 +30,19 @@ def get_spark_session(app_name: str = "EkLakshay-Silver-Transformer") -> SparkSe
         .config("spark.sql.shuffle.partitions", "4")
         .config("spark.sql.ansi.enabled", "false")
         .config("spark.driver.extraJavaOptions", "-Dlog4j.configurationFile=/app/spark/log4j2.properties")
+        
+        .config("spark.hadoop.fs.s3a.fast.upload", "true") 
+        .config("spark.hadoop.fs.s3a.fast.upload.buffer", "bytebuffer") 
+        .config("spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version", "2") 
+        .config("spark.hadoop.mapreduce.fileoutputcommitter.marksuccessfuljobs", "false") 
+        .config("spark.sql.sources.commitProtocolClass", "org.apache.spark.sql.execution.datasources.SQLHadoopMapReduceCommitProtocol") 
+        .config("spark.hadoop.fs.s3a.committer.name", "directory") 
+        .config("spark.hadoop.fs.s3a.committer.staging.conflict-mode", "replace") 
         # Attach AWS S3A dependencies
-        .config(
-            "spark.jars.packages",
-            f"{HADOOP_AWS_PACKAGE},{AWS_SDK_PACKAGE}",
-        )
+        # .config(
+        #     "spark.jars.packages",
+        #     f"{HADOOP_AWS_PACKAGE},{AWS_SDK_PACKAGE}",
+        # )
         # S3A FileSystem Implementation
         .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
         .config("spark.hadoop.fs.s3a.endpoint", f"s3.{aws_region}.amazonaws.com")

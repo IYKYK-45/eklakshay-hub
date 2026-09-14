@@ -24,6 +24,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Download AWS S3 & Hadoop JARs directly into PySpark's jars directory
+RUN curl -fSL https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar \
+    -o /usr/local/lib/python3.10/site-packages/pyspark/jars/hadoop-aws-3.3.4.jar && \
+    curl -fSL https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar \
+    -o /usr/local/lib/python3.10/site-packages/pyspark/jars/aws-java-sdk-bundle-1.12.262.jar
+
 # Copy application code and configuration
 COPY spark/ ./spark
 COPY ingestion/ ./ingestion
