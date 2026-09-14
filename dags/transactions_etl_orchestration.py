@@ -104,40 +104,41 @@ with DAG(
     )
 
     # 4. Insert into Fact Table (Idempotent Append)
+    # 4. Insert into Fact Table (Idempotent Overwrite)
     load_gold_fact = SnowflakeOperator(
         task_id="load_gold_fact_table",
         snowflake_conn_id="snowflake_default",
         sql="""
-            INSERT INTO EKLAKSHAY_DW.GOLD.FACT_TRANSACTIONS (
-                transaction_id,
-                idempotency_key,
-                user_key,
-                merchant_key,
-                date_key,
-                amount,
-                currency,
-                payment_method,
-                status,
-                event_timestamp,
-                ip_address
-            )
-            SELECT 
-                s.transaction_id,
-                s.idempotency_key,
-                u.user_key,
-                m.merchant_key,
-                TO_NUMBER(TO_CHAR(s.event_timestamp::DATE, 'YYYYMMDD')) AS date_key,
-                s.amount,
-                s.currency,
-                s.payment_method,
-                s.status,
-                s.event_timestamp,
-                s.ip_address
-            FROM EKLAKSHAY_DW.SILVER.TRANSACTIONS s
-            JOIN EKLAKSHAY_DW.GOLD.DIM_USERS u ON s.user_id = u.user_id
-            JOIN EKLAKSHAY_DW.GOLD.DIM_MERCHANTS m ON s.merchant_id = m.merchant_id
-            LEFT JOIN EKLAKSHAY_DW.GOLD.FACT_TRANSACTIONS f ON s.transaction_id = f.transaction_id
-            WHERE f.transaction_id IS NULL;
+        INSERT OVERWRITE INTO EKLAKSHAY_DW.GOLD.FACT_TRANSACTIONS (
+            transaction_id,
+            idempotency_key,
+            user_key,
+            merchant_key,
+            date_key,
+            amount,
+            currency,
+            payment_method,
+            status,
+            event_timestamp,
+            ip_address
+        )
+        SELECT
+            s.transaction_id,
+            s.idempotency_key,
+            COALESCE(u.user_key, -1) AS user_key,
+            COALESCE(m.merchant_key, -1) AS merchant_key,
+            TO_NUMBER(TO_CHAR(s.event_timestamp::DATE, 'YYYYMMDD')) AS date_key,
+            s.amount,
+            s.currency,
+            s.payment_method,
+            s.status,
+            s.event_timestamp,
+            s.ip_address
+        FROM EKLAKSHAY_DW.SILVER.TRANSACTIONS s
+        LEFT JOIN EKLAKSHAY_DW.GOLD.DIM_USERS u 
+            ON s.user_id = u.user_id
+        LEFT JOIN EKLAKSHAY_DW.GOLD.DIM_MERCHANTS m 
+            ON s.merchant_id = m.merchant_id;
         """,
     )
 
